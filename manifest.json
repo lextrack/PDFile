@@ -1,0 +1,16 @@
+{
+    "name": "PDFile - PDF Manipulator",
+    "short_name": "PDFile",
+    "description": "PDF manipulation tool",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#667eea",
+    "theme_color": "#667eea",
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "64x64",
+            "type": "image/x-icon"
+        }
+    ]
+}
