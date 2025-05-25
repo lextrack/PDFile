@@ -1,16 +1,84 @@
 {
     "name": "PDFile - PDF Manipulator",
     "short_name": "PDFile",
-    "description": "PDF manipulation tool",
-    "start_url": "/",
+    "description": "A client-side PDF manipulation tool that runs entirely in your browser",
+    "start_url": "/PDFile/",
+    "scope": "/PDFile/",
     "display": "standalone",
+    "orientation": "portrait-primary",
     "background_color": "#667eea",
     "theme_color": "#667eea",
+    "lang": "en",
+    "categories": ["productivity", "utilities"],
     "icons": [
         {
-            "src": "/favicon.ico",
-            "sizes": "64x64",
-            "type": "image/x-icon"
+            "src": "/PDFile/favicon.ico",
+            "sizes": "64x64 32x32 24x24 16x16",
+            "type": "image/x-icon",
+            "purpose": "any maskable"
         }
-    ]
+    ],
+    "screenshots": [
+        {
+            "src": "/PDFile/Screenshots/1.jpg",
+            "sizes": "1280x720",
+            "type": "image/jpeg",
+            "form_factor": "wide"
+        },
+        {
+            "src": "/PDFile/Screenshots/2.jpg",
+            "sizes": "720x1280",
+            "type": "image/jpeg",
+            "form_factor": "narrow"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Merge PDFs",
+            "short_name": "Merge",
+            "description": "Combine multiple PDF files",
+            "url": "/PDFile/?tool=merge",
+            "icons": [
+                {
+                    "src": "/PDFile/favicon.ico",
+                    "sizes": "64x64",
+                    "type": "image/x-icon"
+                }
+            ]
+        },
+        {
+            "name": "Split PDF",
+            "short_name": "Split",
+            "description": "Extract pages from PDF",
+            "url": "/PDFile/?tool=split",
+            "icons": [
+                {
+                    "src": "/PDFile/favicon.ico",
+                    "sizes": "64x64",
+                    "type": "image/x-icon"
+                }
+            ]
+        },
+        {
+            "name": "Compress PDF",
+            "short_name": "Compress",
+            "description": "Reduce PDF file size",
+            "url": "/PDFile/?tool=compress",
+            "icons": [
+                {
+                    "src": "/PDFile/favicon.ico",
+                    "sizes": "64x64",
+                    "type": "image/x-icon"
+                }
+            ]
+        }
+    ],
+    "prefer_related_applications": false,
+    "related_applications": [],
+    "edge_side_panel": {
+        "preferred_width": 400
+    },
+    "launch_handler": {
+        "client_mode": "navigate-existing"
+    }
 }

@@ -1,29 +1,31 @@
-const CACHE_NAME = 'pdfile-v1.2.0';
-const STATIC_CACHE = 'pdfile-static-v1.2.0';
-const DYNAMIC_CACHE = 'pdfile-dynamic-v1.2.0';
+const CACHE_NAME = 'pdfile-v1.2.1';
+const STATIC_CACHE = 'pdfile-static-v1.2.1';
+const DYNAMIC_CACHE = 'pdfile-dynamic-v1.2.1';
+
+const BASE_PATH = self.location.hostname.includes('github.io') ? '/PDFile' : '';
 
 const CRITICAL_ASSETS = [
-    '/',
-    '/index.html',
-    '/css/styles.css',
-    '/css/pdf-viewer.css',
-    '/css/page-reorder.css',
-    '/css/text-conversion.css',
-    '/js/app.js',
-    '/js/utils.js',
-    '/js/pdf-operations.js',
-    '/js/ui-handler.js',
-    '/js/file-handler.js',
-    '/js/drag-drop-handler.js',
-    '/js/pdf-viewer.js',
-    '/js/page-reorder-handler.js',
-    '/js/pdf-compression.js',
-    '/js/format-converters.js',
-    '/js/protected-pdf-processor.js',
-    '/js/tcpdf-certificate-processor.js',
-    '/js/practical-certificate-processor.js',
-    '/js/universal-protected-detector.js',
-    '/favicon.ico'
+    `${BASE_PATH}/`,
+    `${BASE_PATH}/index.html`,
+    `${BASE_PATH}/css/styles.css`,
+    `${BASE_PATH}/css/pdf-viewer.css`,
+    `${BASE_PATH}/css/page-reorder.css`,
+    `${BASE_PATH}/css/text-conversion.css`,
+    `${BASE_PATH}/js/app.js`,
+    `${BASE_PATH}/js/utils.js`,
+    `${BASE_PATH}/js/pdf-operations.js`,
+    `${BASE_PATH}/js/ui-handler.js`,
+    `${BASE_PATH}/js/file-handler.js`,
+    `${BASE_PATH}/js/drag-drop-handler.js`,
+    `${BASE_PATH}/js/pdf-viewer.js`,
+    `${BASE_PATH}/js/page-reorder-handler.js`,
+    `${BASE_PATH}/js/pdf-compression.js`,
+    `${BASE_PATH}/js/format-converters.js`,
+    `${BASE_PATH}/js/protected-pdf-processor.js`,
+    `${BASE_PATH}/js/tcpdf-certificate-processor.js`,
+    `${BASE_PATH}/js/practical-certificate-processor.js`,
+    `${BASE_PATH}/js/universal-protected-detector.js`,
+    `${BASE_PATH}/favicon.ico`
 ];
 
 const CDN_ASSETS = [
@@ -40,12 +42,22 @@ self.addEventListener('install', (event) => {
     event.waitUntil(
         Promise.all([
             caches.open(STATIC_CACHE).then((cache) => {
-                return cache.addAll(CRITICAL_ASSETS);
+                return Promise.allSettled(
+                    CRITICAL_ASSETS.map(asset => 
+                        cache.add(asset).catch(err => {
+                            console.warn(`Failed to cache ${asset}:`, err);
+                            return null;
+                        })
+                    )
+                );
             }),
             caches.open(DYNAMIC_CACHE).then((cache) => {
                 return Promise.allSettled(
                     CDN_ASSETS.map(url => 
-                        cache.add(url).catch(err => console.warn(`Failed to cache ${url}`))
+                        cache.add(url).catch(err => {
+                            console.warn(`Failed to cache CDN asset ${url}:`, err);
+                            return null;
+                        })
                     )
                 );
             })
@@ -96,8 +108,10 @@ self.addEventListener('fetch', (event) => {
 async function handleDocument(request) {
     try {
         const networkResponse = await fetch(request);
-        const cache = await caches.open(STATIC_CACHE);
-        cache.put(request, networkResponse.clone());
+        if (networkResponse.ok) {
+            const cache = await caches.open(STATIC_CACHE);
+            cache.put(request, networkResponse.clone());
+        }
         return networkResponse;
     } catch (error) {
         const cachedResponse = await caches.match(request);
@@ -118,33 +132,48 @@ async function handleStaticAsset(request) {
     
     try {
         const networkResponse = await fetch(request);
-        const cache = await caches.open(STATIC_CACHE);
-        cache.put(request, networkResponse.clone());
+        if (networkResponse.ok) {
+            const cache = await caches.open(STATIC_CACHE);
+            cache.put(request, networkResponse.clone());
+        }
         return networkResponse;
     } catch (error) {
-        return new Response('Asset not available offline', { status: 404 });
+        return new Response('Asset not available offline', { 
+            status: 404,
+            statusText: 'Not Found'
+        });
     }
 }
 
 async function handleCDNAsset(request) {
     const cachedResponse = await caches.match(request);
     
-    const fetchPromise = fetch(request).then((networkResponse) => {
-        const cache = caches.open(DYNAMIC_CACHE);
-        cache.then(c => c.put(request, networkResponse.clone()));
-        return networkResponse;
-    }).catch(() => {
-        return null;
-    });
+    if (cachedResponse) {
+        return cachedResponse;
+    }
     
-    return cachedResponse || await fetchPromise;
+    try {
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+            const cache = await caches.open(DYNAMIC_CACHE);
+            cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+    } catch (error) {
+        return cachedResponse || new Response('CDN asset unavailable', { 
+            status: 404,
+            statusText: 'Not Found'
+        });
+    }
 }
 
 async function updateCacheInBackground(request) {
     try {
         const networkResponse = await fetch(request);
-        const cache = await caches.open(STATIC_CACHE);
-        cache.put(request, networkResponse);
+        if (networkResponse.ok) {
+            const cache = await caches.open(STATIC_CACHE);
+            cache.put(request, networkResponse);
+        }
     } catch (error) {
         // Silent fail
     }
@@ -170,21 +199,30 @@ function createOfflinePage() {
                     justify-content: center;
                     color: white;
                 }
-                .offline-container {
+                .container {
                     text-align: center;
                     background: rgba(255, 255, 255, 0.1);
                     backdrop-filter: blur(10px);
                     padding: 3rem;
                     border-radius: 20px;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                    max-width: 500px;
+                    margin: 0 20px;
                 }
-                .offline-icon {
+                .icon {
                     font-size: 4rem;
                     margin-bottom: 1rem;
                 }
-                h1 { margin-bottom: 0.5rem; }
-                p { opacity: 0.9; margin-bottom: 2rem; }
-                .retry-btn {
+                h1 { 
+                    margin-bottom: 0.5rem;
+                    font-size: 2rem;
+                }
+                p { 
+                    opacity: 0.9; 
+                    margin-bottom: 2rem;
+                    line-height: 1.6;
+                }
+                .btn {
                     background: rgba(255, 255, 255, 0.2);
                     border: 2px solid white;
                     color: white;
@@ -193,37 +231,48 @@ function createOfflinePage() {
                     cursor: pointer;
                     font-size: 1rem;
                     transition: all 0.3s ease;
+                    text-decoration: none;
+                    display: inline-block;
+                    margin: 0.5rem;
                 }
-                .retry-btn:hover {
+                .btn:hover {
                     background: rgba(255, 255, 255, 0.3);
                     transform: translateY(-2px);
+                    color: white;
+                    text-decoration: none;
                 }
             </style>
         </head>
         <body>
-            <div class="offline-container">
-                <div class="offline-icon">📱</div>
-                <h1>PDFile - Offline Mode</h1>
-                <p>You're currently offline. PDFile can still work with files you've previously accessed.</p>
-                <button class="retry-btn" onclick="window.location.reload()">
-                    Retry Connection
-                </button>
+            <div class="container">
+                <div class="icon">📱</div>
+                <h1>PDFile - Offline</h1>
+                <p>You're currently offline, but PDFile can still work with files you've previously accessed.</p>
+                <a href="${BASE_PATH}/" class="btn">Go to PDFile</a>
+                <button class="btn" onclick="window.location.reload()">Retry Connection</button>
             </div>
         </body>
         </html>
     `;
     
     return new Response(offlineHTML, {
-        headers: { 'Content-Type': 'text/html' }
+        status: 200,
+        headers: { 
+            'Content-Type': 'text/html',
+            'Cache-Control': 'no-cache'
+        }
     });
 }
 
 function isStaticAsset(pathname) {
-    return pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf)$/);
+    return pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|webp|bmp)$/);
 }
 
 function isDocument(pathname) {
-    return pathname === '/' || pathname.endsWith('.html') || !pathname.includes('.');
+    return pathname === '/' || 
+           pathname === `${BASE_PATH}/` || 
+           pathname.endsWith('.html') || 
+           (!pathname.includes('.') && !pathname.startsWith('/api'));
 }
 
 function isCDNAsset(url) {
@@ -237,25 +286,31 @@ self.addEventListener('message', (event) => {
     
     if (event.data && event.data.type === 'GET_CACHE_INFO') {
         getCacheInfo().then(info => {
-            event.ports[0].postMessage(info);
+            if (event.ports && event.ports[0]) {
+                event.ports[0].postMessage(info);
+            }
         });
     }
 });
 
 async function getCacheInfo() {
-    const cacheNames = await caches.keys();
-    const info = {};
-    
-    for (const cacheName of cacheNames) {
-        const cache = await caches.open(cacheName);
-        const keys = await cache.keys();
-        info[cacheName] = {
-            count: keys.length,
-            urls: keys.map(req => req.url)
-        };
+    try {
+        const cacheNames = await caches.keys();
+        const info = {};
+        
+        for (const cacheName of cacheNames) {
+            const cache = await caches.open(cacheName);
+            const keys = await cache.keys();
+            info[cacheName] = {
+                count: keys.length,
+                urls: keys.map(req => req.url)
+            };
+        }
+        
+        return info;
+    } catch (error) {
+        return { error: error.message };
     }
-    
-    return info;
 }
 
 if ('sync' in self.registration) {
@@ -267,5 +322,21 @@ if ('sync' in self.registration) {
 }
 
 async function doBackgroundSync() {
-    console.log('Background sync triggered');
+    try {
+        const cache = await caches.open(STATIC_CACHE);
+        const requests = await cache.keys();
+        
+        for (const request of requests.slice(0, 5)) {
+            try {
+                const response = await fetch(request);
+                if (response.ok) {
+                    await cache.put(request, response);
+                }
+            } catch (error) {
+                console.warn('Background sync failed for:', request.url);
+            }
+        }
+    } catch (error) {
+        console.warn('Background sync error:', error);
+    }
 }
