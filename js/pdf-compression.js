@@ -3,43 +3,35 @@ class AdvancedPDFCompressor {
         this.compressionLevels = {
             low: { 
                 imageQuality: 0.90,
-                imageDownsample: false,
-                maxImageDPI: null,
+                renderScale: 1.2,
                 removeMetadata: false,
                 removeBookmarks: false,
                 removeAnnotations: false,
-                optimizeStructure: true,
-                description: 'Minimal compression'
+                description: 'Minimal compression - maintains highest quality'
             },
             medium: { 
-                imageQuality: 0.70,
-                imageDownsample: true,
-                maxImageDPI: 150,
+                imageQuality: 0.75,
+                renderScale: 1.0,
                 removeMetadata: true,
                 removeBookmarks: false,
                 removeAnnotations: false,
-                optimizeStructure: true,
-                description: 'Balanced compression'
+                description: 'Balanced compression - good quality and size reduction'
             },
             high: { 
-                imageQuality: 0.50,
-                imageDownsample: true,
-                maxImageDPI: 100,
+                imageQuality: 0.60,
+                renderScale: 0.8,
                 removeMetadata: true,
                 removeBookmarks: true,
                 removeAnnotations: false,
-                optimizeStructure: true,
-                description: 'High compression'
+                description: 'High compression - prioritizes smaller file size'
             },
             maximum: { 
-                imageQuality: 0.30,
-                imageDownsample: true,
-                maxImageDPI: 72,
+                imageQuality: 0.50,
+                renderScale: 0.6,
                 removeMetadata: true,
                 removeBookmarks: true,
                 removeAnnotations: true,
-                optimizeStructure: true,
-                description: 'Maximum compression'
+                description: 'Maximum compression - smallest file size'
             }
         };
     }
@@ -49,25 +41,13 @@ class AdvancedPDFCompressor {
             Utils.updateProgress(5, 'Loading PDF document...');
             
             const arrayBuffer = await Utils.fileToArrayBuffer(file);
-            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-            
-            const settings = this.compressionLevels[level];
             const originalSize = file.size;
+            const settings = this.compressionLevels[level];
             
             Utils.updateProgress(15, `Applying ${level} compression...`);
 
-            if (settings.imageDownsample) {
-                await this.processImages(pdfDoc, settings);
-                Utils.updateProgress(40, 'Optimizing images...');
-            }
+            const compressedBytes = await this.compressByRendering(arrayBuffer, settings);
             
-            await this.optimizeFonts(pdfDoc, settings);
-            Utils.updateProgress(55, 'Optimizing fonts...');
-            
-            await this.removeUnnecessaryContent(pdfDoc, settings);
-            Utils.updateProgress(70, 'Removing unnecessary content...');
-
-            const compressedBytes = await this.saveWithAdvancedCompression(pdfDoc, settings);
             Utils.updateProgress(90, 'Finalizing compression...');
             
             const compressedSize = compressedBytes.length;
@@ -84,9 +64,9 @@ class AdvancedPDFCompressor {
             const savedPercentage = Math.max(0, compressionRatio).toFixed(1);
             const message = compressedSize < originalSize ? 
                 `PDF compressed successfully!\n\nOriginal: ${Utils.formatFileSize(originalSize)}\nCompressed: ${Utils.formatFileSize(compressedSize)}\nSaved: ${savedPercentage}% (${level} compression)` :
-                `PDF processed successfully!\n\nThe file was already optimized.\nSize: ${Utils.formatFileSize(compressedSize)}`;
+                `PDF processed successfully!\n\nSize: ${Utils.formatFileSize(compressedSize)}\n\nNote: This PDF was already well optimized.`;
             
-            Utils.showToast(message, 'success');
+            Utils.showToast(message, compressedSize < originalSize ? 'success' : 'info');
             
             return {
                 originalSize,
@@ -97,172 +77,195 @@ class AdvancedPDFCompressor {
             };
             
         } catch (error) {
-            console.error('Advanced compression error:', error);
+            console.error('Compression error:', error);
             throw this.handleCompressionError(error);
         }
     }
 
-    async processImages(pdfDoc, settings) {
+    async compressByRendering(arrayBuffer, settings) {
         try {
-            const pages = pdfDoc.getPages();
+            Utils.updateProgress(20, 'Initializing PDF rendering...');
             
-            for (let i = 0; i < pages.length; i++) {
-                const page = pages[i];
-                
+            const loadingTask = pdfjsLib.getDocument({ 
+                data: arrayBuffer,
+                verbosity: 0
+            });
+            const pdfDoc = await loadingTask.promise;
+
+            const newPdfDoc = await PDFLib.PDFDocument.create();
+            const totalPages = pdfDoc.numPages;
+            
+            Utils.updateProgress(30, `Processing ${totalPages} pages...`);
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
                 try {
-                    const pageDict = page.node.dict;
-                    const resources = pageDict.get(PDFLib.PDFName.of('Resources'));
+                    const page = await pdfDoc.getPage(pageNum);
                     
-                    if (resources) {
-                        const xObjects = resources.get(PDFLib.PDFName.of('XObject'));
-                        if (xObjects) {
-                            await this.optimizeXObjects(xObjects, settings);
-                        }
-                    }
+                    const viewport = page.getViewport({ scale: settings.renderScale });
+                    canvas.width = Math.floor(viewport.width);
+                    canvas.height = Math.floor(viewport.height);
+
+                    context.fillStyle = '#FFFFFF';
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    }).promise;
+                    
+                    const imageDataUrl = canvas.toDataURL('image/jpeg', settings.imageQuality);
+                    const imageBytes = this.dataUrlToUint8Array(imageDataUrl);
+                    
+                    const image = await newPdfDoc.embedJpg(imageBytes);
+                    const pdfPage = newPdfDoc.addPage([viewport.width, viewport.height]);
+                    
+                    pdfPage.drawImage(image, {
+                        x: 0,
+                        y: 0,
+                        width: viewport.width,
+                        height: viewport.height
+                    });
+                    
+                    const progress = 30 + (pageNum / totalPages) * 50;
+                    Utils.updateProgress(progress, `Processing page ${pageNum}/${totalPages}...`);
+                    
                 } catch (pageError) {
-                    console.warn(`Could not optimize images on page ${i + 1}:`, pageError);
+                    console.error(`Error processing page ${pageNum}:`, pageError);
+
+                    this.createErrorPage(newPdfDoc, pageNum, pageError.message);
                 }
             }
-        } catch (error) {
-            console.warn('Image processing failed:', error);
-        }
-    }
-
-    async optimizeXObjects(xObjects, settings) {
-        try {
-            const keys = xObjects.dict.keys();
-            for (const key of keys) {
-                const obj = xObjects.dict.get(key);
-                if (obj && obj.dict) {
-                    const subtype = obj.dict.get(PDFLib.PDFName.of('Subtype'));
-                    if (subtype && subtype.asName() === 'Image') {
-                    }
-                }
-            }
-        } catch (error) {
-            console.warn('XObject optimization failed:', error);
-        }
-    }
-
-    async optimizeFonts(pdfDoc, settings) {
-        try {
-            const context = pdfDoc.context;
-            const fontRefs = [];
-
-            context.enumerateIndirectObjects().forEach((ref, obj) => {
-                if (obj && obj.dict && obj.dict.get(PDFLib.PDFName.of('Type'))) {
-                    const type = obj.dict.get(PDFLib.PDFName.of('Type'));
-                    if (type && type.asName() === 'Font') {
-                        fontRefs.push(ref);
-                    }
-                }
-            });
-
-            for (const fontRef of fontRefs) {
-                try {
-                    const fontObj = context.lookup(fontRef);
-                    if (fontObj && fontObj.dict) {
-                        if (settings.imageQuality < 0.5) {
-                            this.optimizeFontObject(fontObj);
-                        }
-                    }
-                } catch (fontError) {
-                    console.warn('Font optimization error:', fontError);
-                }
-            }
-        } catch (error) {
-            console.warn('Font optimization failed:', error);
-        }
-    }
-
-    optimizeFontObject(fontObj) {
-        try {
-            const optionalKeys = [
-                'FontBBox', 'ItalicAngle', 'Ascent', 'Descent',
-                'Leading', 'CapHeight', 'XHeight', 'StemV', 'StemH'
-            ];
             
-            optionalKeys.forEach(key => {
-                if (fontObj.dict.has(PDFLib.PDFName.of(key))) {
-                    fontObj.dict.delete(PDFLib.PDFName.of(key));
-                }
-            });
+            Utils.updateProgress(85, 'Applying final optimizations...');
+            
+            this.applyMetadataOptimizations(newPdfDoc, settings);
+            
+            const saveOptions = {
+                useObjectStreams: true,
+                addDefaultPage: false,
+                objectStreamsInForm: true,
+                updateFieldAppearances: false
+            };
+            
+            return await newPdfDoc.save(saveOptions);
+            
         } catch (error) {
-            console.warn('Font object optimization failed:', error);
+            console.error('Rendering compression failed:', error);
+
+            return await this.basicPDFLibCompression(arrayBuffer, settings);
         }
     }
 
-    async removeUnnecessaryContent(pdfDoc, settings) {
+    async basicPDFLibCompression(arrayBuffer, settings) {
+        try {
+            Utils.updateProgress(40, 'Using basic compression method...');
+            
+            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+            
+            this.applyMetadataOptimizations(pdfDoc, settings);
+            
+            const saveOptions = {
+                useObjectStreams: true,
+                addDefaultPage: false,
+                objectStreamsInForm: true,
+                updateFieldAppearances: false
+            };
+            
+            return await pdfDoc.save(saveOptions);
+            
+        } catch (error) {
+            console.error('Basic compression also failed:', error);
+            throw new Error('Could not compress PDF with any available method');
+        }
+    }
+
+    applyMetadataOptimizations(pdfDoc, settings) {
         try {
             if (settings.removeMetadata) {
                 pdfDoc.setTitle('');
                 pdfDoc.setAuthor('');
                 pdfDoc.setSubject('');
                 pdfDoc.setKeywords([]);
-                pdfDoc.setCreator('');
+                pdfDoc.setCreator('PDFile Compressor');
                 pdfDoc.setProducer('PDFile Compressor');
+                pdfDoc.setCreationDate(new Date());
+                pdfDoc.setModificationDate(new Date());
+            }
+
+            if (settings.removeAnnotations) {
+                const pages = pdfDoc.getPages();
+                pages.forEach((page, index) => {
+                    try {
+                        const pageRef = page.ref;
+                        const pageDict = pdfDoc.context.lookup(pageRef);
+                        if (pageDict && pageDict.has && pageDict.has(PDFLib.PDFName.of('Annots'))) {
+                            pageDict.delete(PDFLib.PDFName.of('Annots'));
+                        }
+                    } catch (error) {
+                        console.warn(`Could not remove annotations from page ${index + 1}:`, error);
+                    }
+                });
             }
 
             if (settings.removeBookmarks) {
                 try {
                     const catalog = pdfDoc.catalog;
-                    if (catalog.dict.has(PDFLib.PDFName.of('Outlines'))) {
-                        catalog.dict.delete(PDFLib.PDFName.of('Outlines'));
+                    if (catalog && catalog.has && catalog.has(PDFLib.PDFName.of('Outlines'))) {
+                        catalog.delete(PDFLib.PDFName.of('Outlines'));
                     }
                 } catch (error) {
-                    console.warn('Bookmark removal failed:', error);
+                    console.warn('Could not remove bookmarks:', error);
                 }
             }
-
-            if (settings.removeAnnotations) {
-                const pages = pdfDoc.getPages();
-                pages.forEach(page => {
-                    try {
-                        if (page.node.dict.has(PDFLib.PDFName.of('Annots'))) {
-                            page.node.dict.delete(PDFLib.PDFName.of('Annots'));
-                        }
-                    } catch (error) {
-                        console.warn('Annotation removal failed on page:', error);
-                    }
-                });
-            }
-
-            const catalog = pdfDoc.catalog;
-            const unnecessaryKeys = [
-                'StructTreeRoot', 'MarkInfo', 'Lang', 'SpiderInfo',
-                'PieceInfo', 'Perms', 'Legal', 'Requirements'
-            ];
-
-            unnecessaryKeys.forEach(key => {
-                try {
-                    if (catalog.dict.has(PDFLib.PDFName.of(key))) {
-                        catalog.dict.delete(PDFLib.PDFName.of(key));
-                    }
-                } catch (error) {
-                    console.warn(`Failed to remove ${key}:`, error);
-                }
-            });
 
         } catch (error) {
-            console.warn('Content removal failed:', error);
+            console.warn('Some metadata optimizations failed:', error);
         }
     }
 
-    async saveWithAdvancedCompression(pdfDoc, settings) {
-        const saveOptions = {
-            useObjectStreams: true,
-            addDefaultPage: false,
-            objectStreamsInForm: true,
-            updateFieldAppearances: false,
-            compress: true
-        };
-
-        if (settings.imageQuality < 0.5) {
-            saveOptions.compressStreams = true;
-            saveOptions.optimizeForSize = true;
+    createErrorPage(pdfDoc, pageNum, errorMessage) {
+        try {
+            const page = pdfDoc.addPage([595, 842]);
+            
+            page.drawText(`Error processing page ${pageNum}`, {
+                x: 50,
+                y: 750,
+                size: 16,
+                color: PDFLib.rgb(0.8, 0.2, 0.2)
+            });
+            
+            page.drawText(`Error: ${errorMessage}`, {
+                x: 50,
+                y: 720,
+                size: 12,
+                color: PDFLib.rgb(0.5, 0.5, 0.5)
+            });
+            
+            page.drawText('This page could not be compressed', {
+                x: 50,
+                y: 690,
+                size: 12,
+                color: PDFLib.rgb(0.5, 0.5, 0.5)
+            });
+            
+        } catch (error) {
+            console.error('Could not create error page:', error);
         }
+    }
 
-        return await pdfDoc.save(saveOptions);
+    dataUrlToUint8Array(dataUrl) {
+        const base64 = dataUrl.split(',')[1];
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        return bytes;
     }
 
     handleCompressionError(error) {
@@ -286,7 +289,7 @@ class AdvancedPDFCompressor {
                             <div class="modal-header">
                                 <h5 class="modal-title">
                                     <i class="bi bi-file-zip me-2"></i>
-                                    Advanced PDF Compression Settings
+                                    PDF Compression Settings
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
@@ -305,7 +308,7 @@ class AdvancedPDFCompressor {
                                                     <strong>Low Compression</strong>
                                                     <br><small class="text-muted">${this.compressionLevels.low.description}</small>
                                                 </div>
-                                                <span class="badge bg-success">~10-20%</span>
+                                                <span class="badge bg-success">~5-15%</span>
                                             </div>
                                         </label>
                                     </div>
@@ -318,7 +321,7 @@ class AdvancedPDFCompressor {
                                                     <strong>Medium Compression</strong> <span class="badge bg-primary ms-2">Recommended</span>
                                                     <br><small class="text-muted">${this.compressionLevels.medium.description}</small>
                                                 </div>
-                                                <span class="badge bg-warning">~30-50%</span>
+                                                <span class="badge bg-warning">~15-35%</span>
                                             </div>
                                         </label>
                                     </div>
@@ -331,7 +334,7 @@ class AdvancedPDFCompressor {
                                                     <strong>High Compression</strong>
                                                     <br><small class="text-muted">${this.compressionLevels.high.description}</small>
                                                 </div>
-                                                <span class="badge bg-warning">~50-70%</span>
+                                                <span class="badge bg-warning">~35-55%</span>
                                             </div>
                                         </label>
                                     </div>
@@ -341,10 +344,10 @@ class AdvancedPDFCompressor {
                                         <label class="form-check-label w-100" for="maximum">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div>
-                                                    <strong>Maximum Compression</strong> <span class="badge bg-danger ms-2">Aggressive</span>
+                                                    <strong>Maximum Compression</strong> <span class="badge bg-danger ms-2">Quality Loss</span>
                                                     <br><small class="text-muted">${this.compressionLevels.maximum.description}</small>
                                                 </div>
-                                                <span class="badge bg-danger">~70-90%</span>
+                                                <span class="badge bg-danger">~55-80%</span>
                                             </div>
                                         </label>
                                     </div>
@@ -352,18 +355,19 @@ class AdvancedPDFCompressor {
                                 
                                 <div class="alert alert-info small mt-3">
                                     <i class="bi bi-info-circle me-1"></i>
-                                    <strong>Advanced compression features:</strong>
+                                    <strong>How it works:</strong>
                                     <ul class="mb-0 mt-2">
-                                        <li>Image quality optimization and downsampling</li>
-                                        <li>Font embedding optimization</li>
-                                        <li>Metadata and bookmark removal</li>
-                                        <li>Structural optimization</li>
+                                        <li>Renders each page as optimized JPEG image</li>
+                                        <li>Adjusts image quality and resolution</li>
+                                        <li>Removes unnecessary metadata</li>
+                                        <li>Optimizes PDF structure</li>
+                                        <li>Fallback methods for complex PDFs</li>
                                     </ul>
                                 </div>
                                 
                                 <div class="alert alert-warning small">
                                     <i class="bi bi-exclamation-triangle me-1"></i>
-                                    Higher compression levels may affect print quality and text selection.
+                                    Higher compression may affect text selection and image quality. The process converts pages to images.
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -432,7 +436,7 @@ class AdvancedPDFCompressor {
 }
 
 class PDFCompressor extends AdvancedPDFCompressor {
-    // Inherits all the features of AdvancedPDFCompressor
+    // Inherits all the features of Advanced PDF Compressor
 }
 
 window.AdvancedPDFCompressor = AdvancedPDFCompressor;
