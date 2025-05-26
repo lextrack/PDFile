@@ -80,26 +80,54 @@ class PDFManipulatorApp {
                     registration.addEventListener('updatefound', () => {
                         const newWorker = registration.installing;
                         if (newWorker) {
+                            console.log('New Service Worker found, installing...');
+                            
                             newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                                    this.showUpdateAvailable();
+                                if (newWorker.state === 'installed') {
+                                    if (navigator.serviceWorker.controller) {
+                                        console.log('New Service Worker installed, showing update notification');
+                                        this.showUpdateAvailable();
+                                    } else {
+                                        console.log('Service Worker installed for first time');
+                                    }
+                                }
+                                
+                                if (newWorker.state === 'activated') {
+                                    console.log('New Service Worker activated');
+                                    if (window.location.hostname === 'localhost' || 
+                                        window.location.hostname === '127.0.0.1' ||
+                                        window.location.port === '5500') {
+                                        console.log('Development mode: Auto-reloading...');
+                                        setTimeout(() => window.location.reload(), 1000);
+                                    }
                                 }
                             });
                         }
                     });
                     
                     navigator.serviceWorker.addEventListener('message', (event) => {
-                        if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
-                            this.showUpdateAvailable();
+                        if (event.data && event.data.type === 'SW_UPDATED') {
+                            console.log('SW Message:', event.data.message);
+                            Utils.showToast('App updated successfully!', 'success');
                         }
                     });
+                    
+                    if (registration.waiting) {
+                        console.log('Service Worker waiting, showing update notification');
+                        this.showUpdateAvailable();
+                    }
+                    
+                    setInterval(() => {
+                        console.log('Checking for Service Worker updates...');
+                        registration.update();
+                    }, 60000);
                     
                 })
                 .catch(error => {
                     console.warn('Service Worker registration failed:', error);
                 });
         } else if (window.location.protocol !== 'https:') {
-            console.warn('Service Worker requires HTTPS');
+            console.warn('Service Worker requires HTTPS (except localhost)');
         } else {
             console.warn('Service Worker not supported in this browser');
         }
@@ -107,25 +135,55 @@ class PDFManipulatorApp {
 
     showUpdateAvailable() {
         const updateHTML = `
-            <div class="alert alert-info alert-dismissible fade show position-fixed" 
-                 style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;" 
-                 id="updateAlert">
+            <div class="alert alert-success alert-dismissible fade show position-fixed" 
+                style="top: 20px; right: 20px; z-index: 9999; max-width: 400px;" 
+                id="updateAlert">
                 <i class="bi bi-arrow-clockwise me-2"></i>
                 <strong>Update Available!</strong>
                 <p class="mb-2">A new version of PDFile is ready.</p>
-                <button type="button" class="btn btn-sm btn-primary me-2" onclick="window.location.reload()">
+                <button type="button" class="btn btn-sm btn-success me-2" onclick="this.updateApp()">
                     Update Now
                 </button>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         `;
         
+        const existingAlert = document.getElementById('updateAlert');
+        if (existingAlert) existingAlert.remove();
+        
         document.body.insertAdjacentHTML('beforeend', updateHTML);
+        
+        const updateButton = document.querySelector('#updateAlert .btn-success');
+        if (updateButton) {
+            updateButton.onclick = () => this.updateApp();
+        }
         
         setTimeout(() => {
             const alert = document.getElementById('updateAlert');
             if (alert) alert.remove();
         }, 30000);
+    }
+
+    updateApp() {
+        console.log('Updating app...');
+        
+        if (navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+                type: 'SKIP_WAITING'
+            });
+        }
+        
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistration().then(registration => {
+                if (registration && registration.waiting) {
+                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+            });
+        }
+        
+        setTimeout(() => {
+            window.location.reload(true);
+        }, 500);
     }
 
     setupURLParameterHandling() {
