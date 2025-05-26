@@ -162,8 +162,8 @@ async function handleCDNAsset(request) {
         return networkResponse;
     } catch (error) {
         return cachedResponse || new Response('CDN asset unavailable', { 
-            status: 404,
-            statusText: 'Not Found'
+            status: 504,
+            statusText: 'Gateway Timeout'
         });
     }
 }
@@ -176,7 +176,7 @@ async function updateCacheInBackground(request) {
             cache.put(request, networkResponse);
         }
     } catch (error) {
-        
+        console.warn('Background cache update failed:', error);
     }
 }
 
@@ -314,13 +314,11 @@ async function getCacheInfo() {
     }
 }
 
-if ('sync' in self.registration) {
-    self.addEventListener('sync', (event) => {
-        if (event.tag === 'background-sync') {
-            event.waitUntil(doBackgroundSync());
-        }
-    });
-}
+self.addEventListener('sync', (event) => {
+    if (event.tag === 'background-sync') {
+        event.waitUntil(doBackgroundSync());
+    }
+});
 
 async function doBackgroundSync() {
     try {

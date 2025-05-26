@@ -87,12 +87,21 @@ class PDFManipulatorApp {
                             });
                         }
                     });
+                    
+                    navigator.serviceWorker.addEventListener('message', (event) => {
+                        if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+                            this.showUpdateAvailable();
+                        }
+                    });
+                    
                 })
                 .catch(error => {
                     console.warn('Service Worker registration failed:', error);
                 });
         } else if (window.location.protocol !== 'https:') {
             console.warn('Service Worker requires HTTPS');
+        } else {
+            console.warn('Service Worker not supported in this browser');
         }
     }
 

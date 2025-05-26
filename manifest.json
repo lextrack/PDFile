@@ -2,8 +2,8 @@
     "name": "PDFile - PDF Manipulator",
     "short_name": "PDFile",
     "description": "A client-side PDF manipulation tool that runs entirely in your browser",
-    "start_url": "/PDFile/",
-    "scope": "/PDFile/",
+    "start_url": "./",
+    "scope": "./",
     "display": "standalone",
     "orientation": "portrait-primary",
     "background_color": "#667eea",
@@ -29,7 +29,7 @@
             "name": "Merge PDFs",
             "short_name": "Merge",
             "description": "Combine multiple PDF files",
-            "url": "?tool=merge",
+            "url": "./?tool=merge",
             "icons": [
                 {
                     "src": "icons/icon-192x192.png",
@@ -42,7 +42,7 @@
             "name": "Compress PDF", 
             "short_name": "Compress",
             "description": "Reduce PDF file size",
-            "url": "?tool=compress",
+            "url": "./?tool=compress",
             "icons": [
                 {
                     "src": "icons/icon-192x192.png",
