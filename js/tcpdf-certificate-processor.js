@@ -2,24 +2,200 @@ class TCPDFCertificateProcessor extends ProtectedPDFProcessor {
     constructor() {
         super();
         this.tcpdfPatterns = [
+            // TCPDF Library patterns
             'Powered by TCPDF',
             'www.tcpdf.org',
             'TCPDF_PROTECTION',
-            'ValidacionCertificado',
+            'tcpdf',
+            
+            // ACHS Chile
             'achs',
+            'asociación chilena de seguridad',
             'seguro laboral',
+            'mutual de seguridad',
+            'capacitación achs',
+            'prevención de riesgos achs',
+            'achs.cl',
+            'www.achs.cl',
+            'seguridad y salud ocupacional',
+            
+            // IST Chile
+            'instituto de seguridad del trabajo',
+            'ist chile',
+            'ist.cl',
+            'mutual ist',
+            
+            // ISL Chile
+            'instituto de seguridad laboral',
+            'isl chile',
+            'isl.cl',
+            
+            // SUSESO Chile
+            'suseso',
+            'superintendencia de seguridad social',
+            'suseso.cl',
+            
+            // Codelco (empresa estatal chilena)
             'codelco',
-            'mutual',
-            'chile',
-            'gobierno',
-            'Valida tu diploma'
+            'corporación nacional del cobre',
+            'codelco.com',
+            'codelco chile',
+            
+            // Gobierno Chile
+            'gobierno de chile',
+            'gob.cl',
+            'chile.gob.cl',
+            'ministerio del trabajo chile',
+            'dirección del trabajo',
+            'dt.gob.cl',
+            'mintrab.gob.cl',
+            
+            // SENCE Chile
+            'sence',
+            'servicio nacional de capacitación',
+            'sence.cl',
+            'capacitación laboral chile',
+            
+            // Certificaciones internacionales
+            'iso 45001',
+            'ohsas 18001',
+            'iso 14001',
+            'iso 9001',
+            
+            // Organismos internacionales
+            'ilo',
+            'organización internacional del trabajo',
+            'international labour organization',
+            
+            // Validación patterns
+            'ValidacionCertificado',
+            'Valida tu diploma',
+            'Valida tu certificado',
+            'validar certificado',
+            'verificar diploma',
+            'autenticidad del certificado',
+            'código de verificación',
+            'verification code',
+            'validate certificate',
+            'verify diploma',
+            
+            // Additional Chilean institutions
+            'cchc',
+            'cámara chilena de la construcción',
+            'sofofa',
+            'sociedad de fomento fabril',
+            'asimet',
+            'asociación de industrias metalúrgicas',
+            'sonami',
+            'sociedad nacional de minería',
+            
+            // Universities and education (Chile)
+            'universidad de chile',
+            'uchile.cl',
+            'pontificia universidad católica',
+            'puc.cl',
+            'universidad técnica federico santa maría',
+            'usm.cl',
+            'universidad de concepción',
+            'udec.cl',
+            'duoc uc',
+            'inacap',
+            'instituto aiep',
+            'cft',
+            'centro de formación técnica',
+            
+            // Professional colleges (Chile)
+            'colegio de ingenieros',
+            'colegio médico',
+            'colegio de profesores',
+            'colegio de contadores',
+            'colegio de arquitectos',
+            
+            // Mining companies (Chile)
+            'escondida',
+            'anglo american',
+            'antofagasta minerals',
+            'barrick',
+            'kinross',
+            'newmont',
+            'freeport',
+            
+            // Other patterns
+            'capacitación minera',
+            'seguridad minera',
+            'prevención de riesgos',
+            'higiene industrial',
+            'salud ocupacional',
+            'ergonomía',
+            'psicosocial'
         ];
         
         this.certificatePatterns = [
-            'certificado',
-            'diploma', 
-            'curso',
-            'capacitación'
+            // Spanish
+            'certificado', 'diploma', 'título', 'curso', 'capacitación',
+            'constancia', 'acreditación', 'licencia', 'habilitación',
+            'certificación', 'credencial', 'distintivo', 'reconocimiento',
+            'por haber cumplido', 'satisfactoriamente', 'otorga el presente',
+            'se certifica que', 'hace constar que', 'certifica que',
+            'aprobó el curso', 'completó exitosamente', 'finalizó el programa',
+            'cumple con los requisitos', 'ha demostrado competencia',
+            'acredita conocimientos', 'posee las competencias',
+            
+            // Training specific (Spanish)
+            'curso de capacitación', 'programa de entrenamiento',
+            'taller de formación', 'seminario de actualización',
+            'jornada de capacitación', 'módulo formativo',
+            'entrenamiento en', 'formación en',
+            
+            // Safety specific (Spanish)
+            'prevención de riesgos', 'seguridad industrial',
+            'higiene ocupacional', 'salud en el trabajo',
+            'uso de elementos de protección personal',
+            'uso de epp', 'trabajos en altura',
+            'espacios confinados', 'manejo de sustancias peligrosas',
+            'primeros auxilios', 'evacuación y emergencias',
+            'extinción de incendios', 'uso de extintores',
+            'manejo defensivo', 'conducción segura',
+            
+            // Mining specific (Spanish)
+            'operación de equipos', 'manejo de maquinaria pesada',
+            'voladura', 'tronadura', 'explosivos',
+            'geomecánica', 'ventilación de minas',
+            'procesamiento de minerales', 'metalurgia',
+            
+            // English patterns
+            'certificate', 'diploma', 'degree', 'certification', 'license',
+            'accreditation', 'qualification', 'completion', 'achievement',
+            'training certificate', 'course completion',
+            'hereby certify', 'has successfully completed', 'is hereby awarded',
+            'validate certificate', 'verify diploma', 'transcripts',
+            'professional development', 'continuing education',
+            
+            // Safety specific (English)
+            'safety training', 'occupational health', 'industrial hygiene',
+            'risk assessment', 'hazard identification',
+            'personal protective equipment', 'ppe training',
+            'first aid', 'cpr certification', 'fire safety',
+            'confined space', 'working at heights',
+            'hazardous materials', 'defensive driving',
+            
+            // Portuguese patterns
+            'certificado', 'diploma', 'título', 'curso', 'capacitação',
+            'licença', 'habilitação', 'conclusão', 'certificação',
+            'por ter completado', 'satisfatoriamente', 'concede o presente',
+            'certifica que', 'atesta que', 'comprova que',
+            
+            // French patterns
+            'certificat', 'diplôme', 'titre', 'cours', 'formation',
+            'licence', 'habilitation', 'achèvement', 'certification',
+            'ayant satisfait', 'avec succès', 'décerne le présent',
+            'certifie que', 'atteste que',
+            
+            // German patterns
+            'zertifikat', 'diplom', 'titel', 'kurs', 'ausbildung',
+            'lizenz', 'befähigung', 'abschluss', 'zertifizierung',
+            'erfolgreich abgeschlossen', 'hiermit bescheinigt',
+            'bescheinigt dass', 'bestätigt dass'
         ];
     }
 
@@ -37,12 +213,42 @@ class TCPDFCertificateProcessor extends ProtectedPDFProcessor {
                 pdfString.toLowerCase().includes(pattern.toLowerCase())
             );
             
+            // Enhanced ACHS detection
             const isACHS = pdfString.toLowerCase().includes('achs') || 
-                          pdfString.toLowerCase().includes('seguro laboral');
+                          pdfString.toLowerCase().includes('seguro laboral') ||
+                          pdfString.toLowerCase().includes('asociación chilena de seguridad') ||
+                          pdfString.toLowerCase().includes('achs.cl');
+            
+            // IST detection
+            const isIST = pdfString.toLowerCase().includes('instituto de seguridad del trabajo') ||
+                         pdfString.toLowerCase().includes('ist chile') ||
+                         pdfString.toLowerCase().includes('ist.cl');
+            
+            // ISL detection
+            const isISL = pdfString.toLowerCase().includes('instituto de seguridad laboral') ||
+                         pdfString.toLowerCase().includes('isl chile') ||
+                         pdfString.toLowerCase().includes('isl.cl');
+            
+            // Codelco detection
+            const isCodelco = pdfString.toLowerCase().includes('codelco') ||
+                             pdfString.toLowerCase().includes('corporación nacional del cobre');
+            
+            // Government detection
+            const isGovernment = pdfString.toLowerCase().includes('gobierno de chile') ||
+                               pdfString.toLowerCase().includes('gob.cl') ||
+                               pdfString.toLowerCase().includes('ministerio');
+            
+            // Mining detection
+            const isMining = pdfString.toLowerCase().includes('minería') ||
+                           pdfString.toLowerCase().includes('mining') ||
+                           pdfString.toLowerCase().includes('capacitación minera') ||
+                           pdfString.toLowerCase().includes('seguridad minera');
             
             const hasValidation = pdfString.includes('Valida') || 
                                  pdfString.includes('diploma') ||
-                                 pdfString.includes('certificado');
+                                 pdfString.includes('certificado') ||
+                                 pdfString.includes('verification') ||
+                                 pdfString.includes('validate');
             
             const encryptionInfo = this.analyzeEncryption(pdfString);
             
@@ -50,17 +256,49 @@ class TCPDFCertificateProcessor extends ProtectedPDFProcessor {
                 isTCPDF,
                 isCertificate,
                 isACHS,
+                isIST,
+                isISL,
+                isCodelco,
+                isGovernment,
+                isMining,
                 hasValidation,
                 hasSignature: pdfString.includes('/Sig') || pdfString.includes('/ByteRange'),
                 encryptionLevel: encryptionInfo.level,
                 hasOwnerPassword: encryptionInfo.hasOwnerPassword,
                 hasUserPassword: encryptionInfo.hasUserPassword,
-                restrictions: encryptionInfo.restrictions
+                restrictions: encryptionInfo.restrictions,
+                institutionType: this.determineInstitutionType(pdfString)
             };
             
         } catch (error) {
             console.warn('Could not analyze PDF structure:', error);
             return { isTCPDF: false, hasValidation: false };
+        }
+    }
+
+    determineInstitutionType(pdfString) {
+        const content = pdfString.toLowerCase();
+        
+        if (content.includes('achs') || content.includes('asociación chilena de seguridad')) {
+            return 'ACHS Chile';
+        } else if (content.includes('instituto de seguridad del trabajo') || content.includes('ist chile')) {
+            return 'IST Chile';
+        } else if (content.includes('instituto de seguridad laboral') || content.includes('isl chile')) {
+            return 'ISL Chile';
+        } else if (content.includes('codelco') || content.includes('corporación nacional del cobre')) {
+            return 'Codelco';
+        } else if (content.includes('gobierno de chile') || content.includes('gob.cl')) {
+            return 'Gobierno Chile';
+        } else if (content.includes('universidad') || content.includes('university')) {
+            return 'Universidad';
+        } else if (content.includes('colegio de') || content.includes('professional college')) {
+            return 'Colegio Profesional';
+        } else if (content.includes('sence') || content.includes('capacitación')) {
+            return 'Capacitación';
+        } else if (content.includes('minería') || content.includes('mining')) {
+            return 'Minería';
+        } else {
+            return 'Institución General';
         }
     }
 

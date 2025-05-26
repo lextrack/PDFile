@@ -346,7 +346,7 @@ class PDFManipulatorApp {
                                         <li><strong>Split PDF:</strong> Extract specific pages from a PDF</li>
                                         <li><strong>Reorder Pages:</strong> Change the order of pages</li>
                                         <li><strong>Compress PDF:</strong> Reduce file size</li>
-                                        <li><strong>Convert to PDF:</strong> Convert images and text to PDF</li>
+                                        <li><strong>Convert to PDF:</strong> Convert images and text to PDF files</li>
                                         <li><strong>View PDF:</strong> Preview documents</li>
                                     </ul>
                                 </div>
