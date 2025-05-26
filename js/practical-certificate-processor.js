@@ -550,5 +550,16 @@ class PracticalCertificateProcessor {
     }
 }
 
+async function processProtectedCertificate(file) {
+    const processor = new PracticalCertificateProcessor();
+    try {
+        const result = await processor.processCertificateForMerge(file);
+        console.log(`Certificate processed successfully: ${file.name}`, result.processingMethod);
+        return result;
+    } finally {
+        processor.cleanup();
+    }
+}
+
 window.PracticalCertificateProcessor = PracticalCertificateProcessor;
 window.processProtectedCertificate = processProtectedCertificate;

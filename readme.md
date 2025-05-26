@@ -20,13 +20,13 @@ A basic, client-side PDF manipulation tool that runs entirely in your browser. N
 - **👁️ View PDFs** - Built-in PDF viewer with zoom and navigation
 
 ### File Format Support
-**PDFs**: Standard, (some) encrypted and digitally signed
-**Images**: JPG, jpg, GIF, WEBP, BMP, SVG
-**Text Files**: TXT, CSV, HTML, JSON, XML
+- **PDFs**: Standard, (some) encrypted and digitally signed
+- **Images**: JPG, jpg, GIF, WEBP, BMP, SVG
+- **Text Files**: TXT, CSV, HTML, JSON, XML
 
 ## 🚀 Try the app
 
-You can access the live application from the pinned link, in the description section of this repository, hosted on GitHub Pages.
+You can access the live application from the pinned link, in the description section of this repository, hosted on <a href="https://lextrack.github.io/PDFile/" target="_blank">GitHub Pages</a>
 
 ## 🎯 How It Works
 
@@ -96,7 +96,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **File Size Limit**: 100MB per file
 - **Protected PDFs**: Some heavily encrypted PDFs may have processing limitations
 - **Mobile Performance**: Large files may process slower on mobile devices
-- **Browser Memory**: Very large operations may require desktop browsers
 
 ---
 

@@ -11,8 +11,7 @@ class ProtectedPDFProcessor {
 
     async processProtectedPDF(file, password = '') {
         try {
-            console.log(`Attempting to process protected PDF: ${file.name}`);
-            Utils.showToast(`Processing protected PDF: ${file.name}. This may take longer...`, 'info');
+            console.log(`Processing protected PDF: ${file.name} (Method: ProtectedPDFProcessor)`);
             
             const arrayBuffer = await Utils.fileToArrayBuffer(file);
             const pdfJSConfig = window.pdfJSConfig || {
@@ -40,7 +39,7 @@ class ProtectedPDFProcessor {
             try {
                 pdfDoc = await loadingTask.promise;
             } catch (passwordError) {
-                console.error('Password error:', passwordError);
+                console.debug('Password/loading error in ProtectedPDFProcessor:', passwordError.message);
                 if (passwordError.name === 'PasswordException' || passwordError.message.includes('password')) {
                     const result = await PasswordDialog.promptForPassword(file.name);
                     
@@ -56,15 +55,16 @@ class ProtectedPDFProcessor {
             }
             
             const numPages = pdfDoc.numPages;
-            console.log(`Protected PDF loaded with ${numPages} pages`);
+            console.debug(`ProtectedPDFProcessor: Processing ${numPages} pages from ${file.name}`);
             
             const newPdfDoc = await PDFLib.PDFDocument.create();
             let successfulPages = 0;
+            let blankPages = 0;
             
             for (let pageNum = 1; pageNum <= numPages; pageNum++) {
                 Utils.updateProgress(
                     20 + (pageNum / numPages) * 60, 
-                    `Converting page ${pageNum}/${numPages} of ${file.name}...`
+                    `Processing page ${pageNum}/${numPages} of ${file.name}...`
                 );
                 
                 try {
@@ -85,50 +85,54 @@ class ProtectedPDFProcessor {
                         });
                         
                         successfulPages++;
-                        console.log(`Successfully processed page ${pageNum}`);
+                        console.debug(`ProtectedPDFProcessor: Successfully processed page ${pageNum}`);
                     } else {
-                        console.warn(`Page ${pageNum} rendered as empty, creating placeholder`);
+                        console.debug(`ProtectedPDFProcessor: Page ${pageNum} rendered as blank/empty`);
+                        blankPages++;
                         await this.createPlaceholderPage(newPdfDoc, pageNum, page);
                     }
                     
                 } catch (pageError) {
-                    console.warn(`Error processing page ${pageNum}:`, pageError);
+                    console.debug(`ProtectedPDFProcessor: Error on page ${pageNum}: ${pageError.message}`);
                     await this.createPlaceholderPage(newPdfDoc, pageNum);
+                    blankPages++;
                 }
             }
             
-            if (successfulPages === 0) {
-                throw new Error(`No pages could be processed from ${file.name}`);
+            if (successfulPages === 0 && blankPages === numPages) {
+                console.log(`ProtectedPDFProcessor failed for ${file.name} - all pages blank. Fallback will be used.`);
+                throw new Error(`FALLBACK_NEEDED:ProtectedPDFProcessor could not render content from ${file.name}`);
             }
+            
+            console.log(`ProtectedPDFProcessor completed: ${successfulPages}/${numPages} pages successful, ${blankPages} placeholders`);
             
             const pdfBytes = await newPdfDoc.save();
             
-            console.log(`Successfully converted ${successfulPages}/${numPages} pages from ${file.name}`);
-            
-            if (successfulPages < numPages) {
-                Utils.showToast(
-                    `Partially converted ${file.name}: ${successfulPages}/${numPages} pages successful`, 
-                    'warning'
-                );
-            } else {
-                Utils.showToast(
-                    `Successfully converted protected PDF: ${file.name}`, 
-                    'success'
-                );
-            }
-            
-            return {
+            const result = {
                 document: await PDFLib.PDFDocument.load(pdfBytes),
                 file: file,
-                pageCount: successfulPages,
+                pageCount: Math.max(successfulPages, numPages),
                 id: Utils.generateId(),
                 isConverted: true,
                 originalWasProtected: true,
-                conversionSuccess: successfulPages / numPages
+                conversionSuccess: successfulPages / numPages,
+                processingMethod: 'ProtectedPDFProcessor',
+                successfulPages: successfulPages,
+                placeholderPages: blankPages
             };
             
+            if (successfulPages < numPages) {
+                console.log(`ProtectedPDFProcessor: Partial success for ${file.name}: ${successfulPages}/${numPages} pages rendered`);
+            } else {
+                console.log(`ProtectedPDFProcessor: Full success for ${file.name}`);
+            }
+            
+            return result;
+            
         } catch (error) {
-            console.error(`Failed to process protected PDF ${file.name}:`, error);
+            if (!error.message.startsWith('FALLBACK_NEEDED:')) {
+                console.debug(`ProtectedPDFProcessor failed for ${file.name}:`, error.message);
+            }
             throw error;
         }
     }
@@ -167,14 +171,14 @@ class ProtectedPDFProcessor {
             const isBlank = this.isCanvasBlank(imageData);
             
             if (isBlank) {
-                console.warn('Rendered page appears to be blank');
+                console.debug(`Page appears blank with standard method, trying fallback...`);
                 return await this.fallbackRender(page, scale * 0.8);
             }
             
             return await this.canvasToPngArrayBuffer();
             
         } catch (error) {
-            console.error('Error in renderPageToImageData:', error);
+            console.debug(`Standard render failed, trying fallback: ${error.message}`);
             return await this.fallbackRender(page, scale * 0.5);
         }
     }

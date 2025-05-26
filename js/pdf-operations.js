@@ -104,22 +104,41 @@ class PDFOperations {
     }
 
     async processWithProtectedMethod(file, arrayBuffer, analysis) {
-        console.log(`Using protected document method for ${file.name}`);
+        console.log(`Processing with ProtectedPDFProcessor: ${file.name}`);
         
         try {
             const processor = new ProtectedPDFProcessor();
             const result = await processor.processProtectedPDF(file, '');
             processor.cleanup();
-            return result;
+            
+            if (result && result.pageCount > 0) {
+                if (result.successfulPages && result.successfulPages < result.pageCount) {
+                    console.log(`ProtectedPDFProcessor partial success: ${result.successfulPages}/${result.pageCount} pages for ${file.name}`);
+                } else {
+                    console.log(`ProtectedPDFProcessor success: ${file.name}`);
+                }
+                return result;
+            } else {
+                throw new Error('No usable content generated');
+            }
+            
         } catch (error) {
-            console.warn(`Protected method failed for ${file.name}, trying emergency`);
+            console.log(`ProtectedPDFProcessor failed for ${file.name}, trying emergency method...`);
+            
+            if (error.message.startsWith('FALLBACK_NEEDED:')) {
+                console.debug('Expected fallback scenario:', error.message);
+            } else {
+                console.debug('ProtectedPDFProcessor error:', error.message);
+            }
+            
             return await this.emergencyProcessCertificate(file, arrayBuffer);
         }
     }
 
+
     async emergencyProcessCertificate(file, arrayBuffer) {
         try {
-            console.log(`EMERGENCY PROCESSING: ${file.name}`);
+            console.log(`EMERGENCY PROCESSING: ${file.name} (fallback method)`);
             
             const newPdf = await PDFLib.PDFDocument.create();
             
@@ -142,7 +161,7 @@ class PDFOperations {
                 const pdfDoc = await loadingTask.promise;
                 const numPages = pdfDoc.numPages;
                 
-                console.log(`Certificate has ${numPages} pages, rendering...`);
+                console.log(`Emergency processing: ${numPages} pages from certificate`);
                 
                 let successfulPages = 0;
                 for (let pageNum = 1; pageNum <= numPages; pageNum++) {
@@ -151,19 +170,19 @@ class PDFOperations {
                         if (success) {
                             successfulPages++;
                         } else {
-                            console.warn(`Page ${pageNum} failed, creating placeholder`);
+                            console.debug(`Emergency: Page ${pageNum} failed, creating placeholder`);
                             this.createEmergencyPlaceholder(newPdf, file.name, pageNum);
                         }
                     } catch (pageError) {
-                        console.warn(`Page ${pageNum} error:`, pageError);
+                        console.debug(`Emergency: Page ${pageNum} error: ${pageError.message}`);
                         this.createEmergencyPlaceholder(newPdf, file.name, pageNum);
                     }
                 }
                 
-                console.log(`Successfully processed ${successfulPages}/${numPages} pages`);
+                console.log(`Emergency processing completed: ${successfulPages}/${numPages} pages successful`);
                 
             } catch (pdfJsError) {
-                console.error('PDF.js failed completely:', pdfJsError);
+                console.log(`Emergency: PDF.js failed completely for ${file.name}, creating info document`);
                 this.createEmergencyPlaceholder(newPdf, file.name, 1);
             }
             
@@ -178,11 +197,11 @@ class PDFOperations {
                 isEncrypted: false,
                 isConverted: true,
                 originalWasProtected: true,
-                processingMethod: 'emergency'
+                processingMethod: 'emergency_fallback'
             };
             
             this.pdfs.set(pdfData.id, pdfData);
-            console.log(`EMERGENCY SUCCESS: ${file.name} processed`);
+            console.log(`EMERGENCY SUCCESS: ${file.name} processed via fallback method`);
             
             return pdfData;
             
