@@ -1,6 +1,7 @@
-const CACHE_NAME = 'pdfile-v1.2.1';
-const STATIC_CACHE = 'pdfile-static-v1.2.1';
-const DYNAMIC_CACHE = 'pdfile-dynamic-v1.2.1';
+const CACHE_VERSION = Date.now().toString();
+const CACHE_NAME = `pdfile-v${CACHE_VERSION}`;
+const STATIC_CACHE = `pdfile-static-v${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `pdfile-dynamic-v${CACHE_VERSION}`;
 
 const BASE_PATH = self.location.hostname.includes('github.io') ? '/PDFile' : '';
 
@@ -175,7 +176,7 @@ async function updateCacheInBackground(request) {
             cache.put(request, networkResponse);
         }
     } catch (error) {
-        // Silent fail
+        
     }
 }
 
