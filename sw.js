@@ -1,16 +1,11 @@
-const CACHE_VERSION = Date.now().toString();
-const STATIC_CACHE = `pdfile-static-v${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `pdfile-dynamic-v${CACHE_VERSION}`;
-
+const APP_VERSION = '1.2.1';
+const CACHE_NAME = `pdfile-cache-v${APP_VERSION}`;
 const BASE_PATH = self.location.hostname.includes('github.io') ? '/PDFile' : '';
-
-const IS_DEVELOPMENT = self.location.hostname === 'localhost' || 
-                      self.location.hostname === '127.0.0.1' ||
-                      self.location.port === '5500';
 
 const CRITICAL_ASSETS = [
     `${BASE_PATH}/`,
     `${BASE_PATH}/index.html`,
+    `${BASE_PATH}/manifest.json`,
     `${BASE_PATH}/css/styles.css`,
     `${BASE_PATH}/css/pdf-viewer.css`,
     `${BASE_PATH}/css/page-reorder.css`,
@@ -43,72 +38,50 @@ const CDN_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-    console.log('SW: Installing new version...');
-    
-    if (IS_DEVELOPMENT) {
-        console.log('SW: Development mode - minimal caching');
-        self.skipWaiting();
-        return;
-    }
+    console.log(`Service Worker installing version ${APP_VERSION}`);
     
     event.waitUntil(
-        Promise.all([
-            caches.open(STATIC_CACHE).then((cache) => {
-                return Promise.allSettled(
-                    CRITICAL_ASSETS.map(asset => 
-                        cache.add(asset).catch(err => {
-                            console.warn(`SW: Failed to cache ${asset}:`, err);
-                            return null;
-                        })
-                    )
-                );
-            }),
-            caches.open(DYNAMIC_CACHE).then((cache) => {
-                return Promise.allSettled(
-                    CDN_ASSETS.map(url => 
-                        cache.add(url).catch(err => {
-                            console.warn(`SW: Failed to cache CDN asset ${url}:`, err);
-                            return null;
-                        })
-                    )
-                );
+        caches.open(CACHE_NAME)
+            .then(cache => {
+                console.log('Caching critical assets');
+                return cache.addAll(CRITICAL_ASSETS)
+                    .then(() => {
+                        console.log('All critical assets cached');
+                        return Promise.allSettled(
+                            CDN_ASSETS.map(url => fetch(url)
+                                .then(response => {
+                                    if (response.ok) {
+                                        return cache.put(url, response);
+                                    }
+                                })
+                                .catch(err => console.warn('Failed to cache CDN asset:', url, err))
+                            )
+                        );
+                    });
             })
-        ]).then(() => {
-            console.log('SW: Installation complete, forcing activation...');
-            return self.skipWaiting();
-        })
+            .then(() => {
+                console.log('Skip waiting to activate immediately');
+                return self.skipWaiting();
+            })
     );
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('SW: Activating new version...');
+    console.log(`Service Worker activating version ${APP_VERSION}`);
     
     event.waitUntil(
-        Promise.all([
-            // Limpiar caches antiguos
-            caches.keys().then((cacheNames) => {
-                return Promise.all(
-                    cacheNames.map((cacheName) => {
-                        if (cacheName !== STATIC_CACHE && 
-                            cacheName !== DYNAMIC_CACHE && 
-                            cacheName.startsWith('pdfile-')) {
-                            console.log(`SW: Deleting old cache: ${cacheName}`);
-                            return caches.delete(cacheName);
-                        }
-                    })
-                );
-            }),
-            self.clients.claim()
-        ]).then(() => {
-            console.log('SW: Activation complete');
-            return self.clients.matchAll().then(clients => {
-                clients.forEach(client => {
-                    client.postMessage({
-                        type: 'SW_UPDATED',
-                        message: 'Service Worker updated successfully'
-                    });
-                });
-            });
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => {
+                    if (cacheName !== CACHE_NAME && cacheName.startsWith('pdfile-cache-')) {
+                        console.log(`Deleting old cache: ${cacheName}`);
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        }).then(() => {
+            console.log('Claiming clients');
+            return self.clients.claim();
         })
     );
 });
@@ -117,155 +90,57 @@ self.addEventListener('fetch', (event) => {
     const request = event.request;
     const url = new URL(request.url);
     
-    if (request.method !== 'GET') {
-        return;
+    if (request.method !== 'GET') return;
+    
+    event.respondWith(
+        fetch(request)
+            .then(networkResponse => {
+                if (networkResponse.ok) {
+                    const responseClone = networkResponse.clone();
+                    caches.open(CACHE_NAME)
+                        .then(cache => cache.put(request, responseClone))
+                        .catch(err => console.warn('Failed to update cache:', err));
+                }
+                return networkResponse;
+            })
+            .catch(() => {
+                return caches.match(request)
+                    .then(cachedResponse => {
+                        if (cachedResponse) {
+                            console.log(`Serving from cache: ${request.url}`);
+                            return cachedResponse;
+                        }
+                        
+                        if (request.headers.get('accept').includes('text/html')) {
+                            return caches.match(`${BASE_PATH}/index.html`);
+                        }
+                        
+                        return new Response('Resource not available offline', {
+                            status: 503,
+                            statusText: 'Service Unavailable'
+                        });
+                    });
+            })
+    );
+});
+
+self.addEventListener('message', (event) => {
+    if (event.data.type === 'SKIP_WAITING') {
+        console.log('Received skip waiting command');
+        self.skipWaiting();
     }
     
-    if (IS_DEVELOPMENT) {
-        event.respondWith(handleDevelopmentRequest(request));
-        return;
+    if (event.data.type === 'GET_VERSION') {
+        event.ports[0].postMessage({ version: APP_VERSION });
     }
     
-    if (url.origin === location.origin) {
-        if (isStaticAsset(url.pathname)) {
-            event.respondWith(handleStaticAsset(request));
-        } else if (isDocument(url.pathname)) {
-            event.respondWith(handleDocument(request));
-        }
-    } else if (isCDNAsset(url.href)) {
-        event.respondWith(handleCDNAsset(request));
+    if (event.data.type === 'CLEAR_CACHE') {
+        caches.delete(CACHE_NAME)
+            .then(() => event.ports[0].postMessage({ success: true }))
+            .catch(err => event.ports[0].postMessage({ success: false, error: err.message }));
     }
 });
 
-async function handleDevelopmentRequest(request) {
-    const url = new URL(request.url);
-    
-    try {
-        const networkResponse = await fetch(request, {
-            cache: 'no-store'
-        });
-        
-        if (networkResponse.ok) {
-            console.log(`SW Dev: Fresh from network: ${url.pathname}`);
-            return networkResponse;
-        }
-    } catch (error) {
-        console.log(`SW Dev: Network failed for ${url.pathname}, trying cache...`);
-    }
-    
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-        console.log(`SW Dev: Served from cache: ${url.pathname}`);
-        return cachedResponse;
-    }
-    
-    return new Response('Not available in development', { 
-        status: 404,
-        statusText: 'Not Found'
-    });
-}
-
-async function handleDocument(request) {
-    try {
-        const networkResponse = await fetch(request, {
-            cache: IS_DEVELOPMENT ? 'no-store' : 'default'
-        });
-        
-        if (networkResponse.ok) {
-            if (!IS_DEVELOPMENT) {
-                const cache = await caches.open(STATIC_CACHE);
-                cache.put(request, networkResponse.clone());
-            }
-            return networkResponse;
-        }
-    } catch (error) {
-        console.log(`SW: Network failed for document: ${request.url}`);
-    }
-    
-    const cachedResponse = await caches.match(request);
-    if (cachedResponse) {
-        return cachedResponse;
-    }
-    
-    return createOfflinePage();
-}
-
-async function handleStaticAsset(request) {
-    const url = new URL(request.url);
-    
-    if (IS_DEVELOPMENT) {
-        try {
-            const networkResponse = await fetch(request, { cache: 'no-store' });
-            if (networkResponse.ok) {
-                return networkResponse;
-            }
-        } catch (error) {
-        }
-    }
-    
-    const cachedResponse = await caches.match(request);
-    
-    if (cachedResponse && !IS_DEVELOPMENT) {
-        updateCacheInBackground(request);
-        return cachedResponse;
-    }
-    
-    try {
-        const networkResponse = await fetch(request, {
-            cache: IS_DEVELOPMENT ? 'no-store' : 'default'
-        });
-        
-        if (networkResponse.ok) {
-            if (!IS_DEVELOPMENT) {
-                const cache = await caches.open(STATIC_CACHE);
-                cache.put(request, networkResponse.clone());
-            }
-            return networkResponse;
-        }
-        
-        return networkResponse;
-    } catch (error) {
-        return cachedResponse || new Response('Asset not available', { 
-            status: 404,
-            statusText: 'Not Found'
-        });
-    }
-}
-
-async function handleCDNAsset(request) {
-    const cachedResponse = await caches.match(request);
-    
-    if (cachedResponse) {
-        return cachedResponse;
-    }
-    
-    try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-            const cache = await caches.open(DYNAMIC_CACHE);
-            cache.put(request, networkResponse.clone());
-        }
-        return networkResponse;
-    } catch (error) {
-        return new Response('CDN asset unavailable', { 
-            status: 504,
-            statusText: 'Gateway Timeout'
-        });
-    }
-}
-
-async function updateCacheInBackground(request) {
-    try {
-        const networkResponse = await fetch(request);
-        if (networkResponse.ok) {
-            const cache = await caches.open(STATIC_CACHE);
-            await cache.put(request, networkResponse);
-            console.log(`SW: Background updated: ${request.url}`);
-        }
-    } catch (error) {
-        console.warn('SW: Background update failed:', error);
-    }
-}
 
 function createOfflinePage() {
     const offlineHTML = `
@@ -319,13 +194,6 @@ function createOfflinePage() {
                     color: white;
                     text-decoration: none;
                 }
-                .dev-info {
-                    font-size: 0.8rem;
-                    opacity: 0.7;
-                    margin-top: 1rem;
-                    border-top: 1px solid rgba(255,255,255,0.2);
-                    padding-top: 1rem;
-                }
             </style>
         </head>
         <body>
@@ -335,7 +203,6 @@ function createOfflinePage() {
                 <p>You're currently offline, but PDFile can still work with previously cached files.</p>
                 <a href="${BASE_PATH}/" class="btn">Go to PDFile</a>
                 <button class="btn" onclick="window.location.reload()">Retry Connection</button>
-                ${IS_DEVELOPMENT ? '<div class="dev-info">Development Mode: Minimal caching active</div>' : ''}
             </div>
         </body>
         </html>
@@ -348,86 +215,4 @@ function createOfflinePage() {
             'Cache-Control': 'no-cache'
         }
     });
-}
-
-function isStaticAsset(pathname) {
-    return pathname.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|webp|bmp)$/);
-}
-
-function isDocument(pathname) {
-    return pathname === '/' || 
-           pathname === `${BASE_PATH}/` || 
-           pathname.endsWith('.html') || 
-           (!pathname.includes('.') && !pathname.startsWith('/api'));
-}
-
-function isCDNAsset(url) {
-    return CDN_ASSETS.some(cdnUrl => url.startsWith(cdnUrl.split('?')[0]));
-}
-
-self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
-        self.skipWaiting();
-    }
-    
-    if (event.data && event.data.type === 'GET_CACHE_INFO') {
-        getCacheInfo().then(info => {
-            if (event.ports && event.ports[0]) {
-                event.ports[0].postMessage(info);
-            }
-        });
-    }
-    
-    if (event.data && event.data.type === 'FORCE_UPDATE') {
-        console.log('SW: Force update requested');
-        self.skipWaiting();
-    }
-});
-
-async function getCacheInfo() {
-    try {
-        const cacheNames = await caches.keys();
-        const info = { development: IS_DEVELOPMENT };
-        
-        for (const cacheName of cacheNames) {
-            const cache = await caches.open(cacheName);
-            const keys = await cache.keys();
-            info[cacheName] = {
-                count: keys.length,
-                urls: keys.slice(0, 10).map(req => req.url)
-            };
-        }
-        
-        return info;
-    } catch (error) {
-        return { error: error.message };
-    }
-}
-
-self.addEventListener('sync', (event) => {
-    if (event.tag === 'background-sync') {
-        event.waitUntil(doBackgroundSync());
-    }
-});
-
-async function doBackgroundSync() {
-    if (IS_DEVELOPMENT) return;
-    
-    try {
-        const cache = await caches.open(STATIC_CACHE);
-        const requests = await cache.keys();
-        
-        for (const request of requests.slice(0, 5)) {
-            try {
-                const response = await fetch(request);
-                if (response.ok) {
-                    await cache.put(request, response);
-                }
-            } catch (error) {
-                console.warn('SW: Background sync failed for:', request.url);
-            }
-        }
-    } catch (error) {
-        console.warn('SW: Background sync error:', error);
-    }
 }

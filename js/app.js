@@ -69,67 +69,27 @@ class PDFManipulatorApp {
     }
 
     setupServiceWorker() {
-        if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+        if ('serviceWorker' in navigator) {
             const swPath = `${this.basePath}/sw.js`;
-            const scope = `${this.basePath}/`;
             
-            navigator.serviceWorker.register(swPath, { scope })
-                .then(registration => {
-                    console.log('Service Worker registered successfully:', registration.scope);
-                    
-                    registration.addEventListener('updatefound', () => {
-                        const newWorker = registration.installing;
-                        if (newWorker) {
-                            console.log('New Service Worker found, installing...');
-                            
-                            newWorker.addEventListener('statechange', () => {
-                                if (newWorker.state === 'installed') {
-                                    if (navigator.serviceWorker.controller) {
-                                        console.log('New Service Worker installed, showing update notification');
-                                        this.showUpdateAvailable();
-                                    } else {
-                                        console.log('Service Worker installed for first time');
-                                    }
-                                }
-                                
-                                if (newWorker.state === 'activated') {
-                                    console.log('New Service Worker activated');
-                                    if (window.location.hostname === 'localhost' || 
-                                        window.location.hostname === '127.0.0.1' ||
-                                        window.location.port === '5500') {
-                                        console.log('Development mode: Auto-reloading...');
-                                        setTimeout(() => window.location.reload(), 1000);
-                                    }
-                                }
-                            });
+            navigator.serviceWorker.register(swPath).then(registration => {
+                console.log('SW registered:', registration.scope);
+                
+                registration.update();
+                
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            this.showUpdateAvailable();
                         }
                     });
-                    
-                    navigator.serviceWorker.addEventListener('message', (event) => {
-                        if (event.data && event.data.type === 'SW_UPDATED') {
-                            console.log('SW Message:', event.data.message);
-                            Utils.showToast('App updated successfully!', 'success');
-                        }
-                    });
-                    
-                    if (registration.waiting) {
-                        console.log('Service Worker waiting, showing update notification');
-                        this.showUpdateAvailable();
-                    }
-                    
-                    setInterval(() => {
-                        console.log('Checking for Service Worker updates...');
-                        registration.update();
-                    }, 60000);
-                    
-                })
-                .catch(error => {
-                    console.warn('Service Worker registration failed:', error);
                 });
-        } else if (window.location.protocol !== 'https:') {
-            console.warn('Service Worker requires HTTPS (except localhost)');
-        } else {
-            console.warn('Service Worker not supported in this browser');
+            });
+            
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
         }
     }
 
