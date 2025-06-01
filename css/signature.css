@@ -1,0 +1,77 @@
+.signature-pad-container {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+#signaturePad {
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    cursor: crosshair;
+    margin-bottom: 15px;
+    touch-action: none;
+}
+
+.signature-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.signature-position-controls {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+}
+
+.signature-position-controls label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.signature-position-controls input[type="number"] {
+    width: 80px;
+    margin: 0 10px;
+}
+
+.signature-preview {
+    border: 1px dashed #dee2e6;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 15px 0;
+    background: #fff;
+}
+
+.signature-preview img {
+    max-width: 200px;
+    height: auto;
+}
+
+.signature-page-selector {
+    margin: 15px 0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.signature-style-controls {
+    margin: 15px 0;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.signature-style-controls .color-picker {
+    margin: 10px 0;
+}
+
+.signature-style-controls .line-width {
+    width: 100%;
+    max-width: 200px;
+}

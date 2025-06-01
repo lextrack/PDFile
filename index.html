@@ -45,6 +45,7 @@
     <link rel="stylesheet" href="css/page-reorder.css">
     <link rel="stylesheet" href="css/text-conversion.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/signature.css">
     
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
@@ -95,7 +96,7 @@
             <div class="tool-card" data-tool="split">
                 <i class="bi bi-scissors tool-icon"></i>
                 <h3>Split PDF</h3>
-                <p>Extract specific pages or split a PDF</p>
+                <p>Extract specific pages from PDF documents</p>
             </div>
             
             <div class="tool-card" data-tool="reorder">
@@ -120,6 +121,12 @@
                 <i class="bi bi-eye tool-icon"></i>
                 <h3>View PDF</h3>
                 <p>Preview and navigate documents</p>
+            </div>
+
+            <div class="tool-card" data-tool="sign">
+                <i class="bi bi-pen tool-icon"></i>
+                <h3>Sign PDF</h3>
+                <p>Add signatures to your PDF documents</p>
             </div>
         </div>
 
@@ -153,6 +160,17 @@
             <div class="workspace-content">
                 <div class="file-list" id="fileList" role="list"></div>
                 <div class="pdf-viewer" id="pdfViewer" style="display: none;" role="application"></div>
+                <div class="signature-pad-container" id="signaturePadContainer" style="display: none;">
+                    <canvas id="signaturePad"></canvas>
+                    <div class="signature-controls">
+                        <button class="btn btn-outline-secondary" id="clearSignature">
+                            <i class="bi bi-eraser"></i> Clear
+                        </button>
+                        <button class="btn btn-primary" id="saveSignature">
+                            <i class="bi bi-check-lg"></i> Save Signature
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -245,6 +263,7 @@
     <script src="js/pdf-compression.js"></script>
     <script src="js/practical-certificate-processor.js"></script>
     <script src="js/universal-protected-detector.js"></script>
+    <script src="js/signature-handler.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
