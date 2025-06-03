@@ -1,0 +1,79 @@
+.page-item {
+    min-height: 280px;
+}
+
+.page-item .page-thumbnail-container {
+    transition: transform 0.2s ease;
+}
+
+.page-item:hover .page-thumbnail-container {
+    transform: scale(1.05);
+}
+
+.page-item.dragging .page-thumbnail-container {
+    opacity: 0.7;
+    transform: scale(0.95);
+}
+
+.page-item canvas {
+    transition: all 0.2s ease;
+}
+
+.page-item:hover canvas {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+@media (max-width: 768px) {
+    .page-item {
+        min-height: 240px;
+    }
+    
+    .page-thumbnail-container {
+        width: 100px !important;
+        height: 130px !important;
+    }
+}
+
+.file-item.error {
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+}
+
+.file-item.success {
+    border-color: #28a745;
+    background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+}
+
+.file-item.draggable-item::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, 
+        rgba(13, 110, 253, 0.02) 0%, 
+        rgba(118, 75, 162, 0.02) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.file-item.draggable-item:hover::after {
+    opacity: 1;
+}
+
+.file-item.draggable-item,
+.drag-handle,
+.order-number {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.file-item:focus-within {
+    outline: 2px solid #0d6efd;
+    outline-offset: 2px;
+}
+
+.drag-handle:focus {
+    outline: 2px solid #0d6efd;
+    outline-offset: 1px;
+}

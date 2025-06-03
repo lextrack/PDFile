@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDFile - PDF Manipulator</title>
+    <meta name="description" content="A client-side PDF manipulation tool that runs entirely in your browser. Merge, split, compress, and convert PDFs securely.">
+    <meta name="author" content="Lextrack">
+    <meta name="keywords" content="PDF, merge, split, compress, convert, manipulator, client-side, privacy, secure">
+    
+    <link rel="canonical" href="https://lextrack.github.io/PDFile/">
+    <link rel="manifest" href="manifest.json">
+    
+    <meta name="theme-color" content="#667eea">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="PDFile">
+    <meta name="msapplication-TileColor" content="#667eea">
+    
+    <meta property="og:title" content="PDFile - PDF Manipulator">
+    <meta property="og:description" content="A secure, client-side PDF manipulation tool. Process PDFs entirely in your browser.">
+    <meta property="og:url" content="https://lextrack.github.io/PDFile/">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://lextrack.github.io/PDFile/Screenshots/1.jpg">
+    
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PDFile - PDF Manipulator">
+    <meta name="twitter:description" content="Secure PDF processing in your browser">
+    <meta name="twitter:image" content="https://lextrack.github.io/PDFile/Screenshots/1.jpg">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT" 
+          crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="favicon.ico">
+    
+    <link rel="stylesheet" href="css/pdf-viewer.css">
+    <link rel="stylesheet" href="css/page-reorder.css">
+    <link rel="stylesheet" href="css/text-conversion.css">
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    
+    <style>
+        .offline { filter: grayscale(0.3); }
+        .loading { opacity: 0.7; pointer-events: none; }
+        
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+        
+        .error-boundary {
+            border: 2px dashed #dc3545;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            background: #fff5f5;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="./">
+                <i class="bi bi-file-earmark-pdf-fill me-2"></i>PDFile
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="#" onclick="app?.showHelp()" title="Help (Ctrl+H)">
+                    <i class="bi bi-question-circle"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="tools-grid">
+            <div class="tool-card" data-tool="merge">
+                <i class="bi bi-files tool-icon"></i>
+                <h3>Merge PDFs</h3>
+                <p>Combine multiple PDF files into one document</p>
+            </div>
+            
+            <div class="tool-card" data-tool="split">
+                <i class="bi bi-scissors tool-icon"></i>
+                <h3>Split PDF</h3>
+                <p>Extract specific pages or split a PDF</p>
+            </div>
+            
+            <div class="tool-card" data-tool="reorder">
+                <i class="bi bi-border-outer tool-icon"></i>
+                <h3>Reorder Pages</h3>
+                <p>Change the order of your PDF pages</p>
+            </div>
+            
+            <div class="tool-card" data-tool="compress">
+                <i class="bi bi-file-zip tool-icon"></i>
+                <h3>Compress PDF</h3>
+                <p>Reduce file size while maintaining quality</p>
+            </div>
+            
+            <div class="tool-card" data-tool="convert">
+                <i class="bi bi-arrow-repeat tool-icon"></i>
+                <h3>Convert to PDF</h3>
+                <p>Convert images and documents to PDF</p>
+            </div>
+            
+            <div class="tool-card" data-tool="view">
+                <i class="bi bi-eye tool-icon"></i>
+                <h3>View PDF</h3>
+                <p>Preview and navigate documents</p>
+            </div>
+        </div>
+
+        <div class="upload-section" id="uploadSection" style="display: none;">
+            <div class="upload-area" id="uploadArea">
+                <i class="bi bi-cloud-upload upload-icon"></i>
+                <h4>Drag files here or click to select</h4>
+                <p class="text-light">Supports PDF, Images (JPG, PNG, GIF, WEBP, BMP, SVG) and Text files (TXT, CSV, HTML, JSON, XML)</p>
+                <input type="file" id="fileInput" multiple 
+                       accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.txt,.csv,.html,.json,.xml,.log"
+                       aria-label="Select files to process">
+            </div>
+        </div>
+
+        <div class="workspace" id="workspace" style="display: none;">
+            <div class="workspace-header">
+                <h3 id="workspaceTitle">Workspace</h3>
+                <div class="workspace-actions">
+                    <button class="btn btn-outline-secondary me-2" id="backBtn" title="Go back">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </button>
+                    <button class="btn btn-outline-danger me-2" id="clearFilesBtn" title="Clear all files">
+                        <i class="bi bi-trash"></i> Clear All
+                    </button>
+                    <button class="btn btn-success" id="processBtn" title="Process files (Ctrl+S)">
+                        <i class="bi bi-check-lg"></i> Process
+                    </button>
+                </div>
+            </div>
+            
+            <div class="workspace-content">
+                <div class="file-list" id="fileList" role="list"></div>
+                <div class="pdf-viewer" id="pdfViewer" style="display: none;" role="application"></div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer mt-4">
+        <div class="container">
+            <div class="row align-items-center py-3">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-file-earmark-pdf-fill me-2 text-primary"></i>
+                        <span class="text-white fw-bold me-3">PDFile</span>
+                        <small class="text-light">
+                            <i class="bi bi-shield-check me-1"></i>
+                            All processing done locally in your browser
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <small class="text-light">
+                        © 2025 PDFile • <a href="https://github.com/lextrack/PDFile" target="_blank" 
+                                           class="text-light text-decoration-none">GitHub</a><br>
+                        <i class="bi bi-globe me-1"></i>Works Offline • 
+                        <i class="bi bi-lightning-fill me-1"></i>Fast & Secure
+                    </small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <div class="modal fade" id="progressModal" tabindex="-1" 
+         aria-labelledby="progressModalLabel" aria-hidden="true" 
+         data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center p-4">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <h5 id="progressText">Processing file...</h5>
+                    <div class="progress mt-3" role="progressbar" aria-label="Processing progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             id="progressBar" style="width: 0%" 
+                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-3" 
+                            id="cancelProcessBtn" style="display: none;">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <noscript>
+        <div class="alert alert-warning m-3">
+            <h4><i class="bi bi-exclamation-triangle me-2"></i>JavaScript Required</h4>
+            <p>PDFile requires JavaScript to function. Please enable JavaScript in your browser settings and reload the page.</p>
+        </div>
+    </noscript>
+
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+        
+        window.addEventListener('error', (e) => {
+            if (e.filename && e.filename.includes('pdf.worker')) {
+                console.warn('PDF.js worker loading issue, attempting fallback...');
+                if (typeof pdfjsLib !== 'undefined') {
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                }
+            }
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" 
+            integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO" 
+            crossorigin="anonymous"></script>
+    
+    <script src="js/utils.js"></script>
+    <script src="js/format-converters.js"></script>
+    <script src="js/pdf-operations.js"></script>
+    <script src="js/protected-pdf-processor.js"></script>   
+    <script src="js/tcpdf-certificate-processor.js"></script>
+    <script src="js/file-handler.js"></script>
+    <script src="js/drag-drop-handler.js"></script>
+    <script src="js/pdf-viewer.js"></script>
+    <script src="js/page-reorder-handler.js"></script>
+    <script src="js/ui-handler.js"></script>
+    <script src="js/pdf-compression.js"></script>
+    <script src="js/practical-certificate-processor.js"></script>
+    <script src="js/universal-protected-detector.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
